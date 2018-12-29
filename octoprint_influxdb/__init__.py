@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import octoprint.plugin
+import octoprint.util
 import influxdb
 
 __plugin_name__ = "InfluxDB Plugin"
@@ -21,12 +22,21 @@ class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
 
 	## our logic
 
+	def __init__(self):
+		self.influx_timer = None
+
 	def influx_reconnect(self):
+		# stop the old timer, if we need to
+		if self.influx_timer:
+			self.influx_timer.cancel()
+			self.influx_timer = None
+
 		# build up some kwargs to pass to InfluxDBClient
 		kwargs = {}
 		def add_arg_if_exists(kwargsname, path, getter=self._settings.get):
-			if self._settings.get(path):
-				kwargs[kwargsname] = getter(path)
+			v = getter(path)
+			if v:
+				kwargs[kwargsname] = v
 
 		add_arg_if_exists('host', ['host'])
 		add_arg_if_exists('port', ['port'], self._settings.get_int)
@@ -51,6 +61,18 @@ class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
 		kwargs_log = ", ".join("{}={!r}".format(*v) for v in sorted(kwargs_safe.items()))
 		self._logger.info("InfluxDB reconnecting: {}".format(kwargs_log))
 
+		# perform reconnection, if we need to
+
+		# start a new timer
+		interval = self._settings.get_float(['interval'], min=0)
+		if not interval:
+			interval = self.get_settings_defaults()['interval']
+		self.influx_timer = octoprint.util.RepeatedTimer(interval, self.influx_gather)
+		self.influx_timer.start()
+
+	def influx_gather(self):
+		self._logger.info("Gathering...")
+
 	##~~ StartupPlugin mixin
 
 	def on_after_startup(self):
@@ -72,6 +94,8 @@ class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
 			database='octoprint',
 			username=None,
 			password=None,
+
+			interval=10,
 		)
 
 	def get_settings_restricted_paths(self):

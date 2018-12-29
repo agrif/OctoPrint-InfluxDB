@@ -1,8 +1,8 @@
-<h4>{{ _('InfluxDB Plugin Settings') }}</h4>
+<h4>{{ _('InfluxDB Connection') }}</h4>
 
 <form class="form-horizontal">
   <div class="control-group">
-    <label class="control-label">{{ _('InfluxDB Server') }}</label>
+    <label class="control-label">{{ _('Server') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="localhost" data-bind="value: settings.plugins.influxdb.host">
       <input type="number" step="1" class="input-small" data-bind="value: settings.plugins.influxdb.port, attr: {placeholder: settings.plugins.influxdb.udp() ? 4444 : 8086}">
@@ -44,6 +44,20 @@
     <label class="control-label">{{ _('Password') }}</label>
     <div class="controls">
       <input type="password" class="input-medium" placeholder="{{ _('Password') }}" data-bind="value: settings.plugins.influxdb.password">
+    </div>
+  </div>
+
+  <div class="control-group">
+    <h4>{{ _('Gather Settings') }}</h4>
+    <label class="control-label">{{ _('Interval') }}</label>
+    <div class="controls">
+      <div class="input-append">
+        <input type="number" class="input-mini" placeholder="10" data-bind="value: settings.plugins.influxdb.interval">
+        <span class="add-on">seconds</span>
+      </div>
+      <span class="help-block">
+        {{ _('Amount of time to wait between recording data points.') }}
+      </span>
     </div>
   </div>
 </form>
