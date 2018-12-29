@@ -1,0 +1,4 @@
+include README.md
+recursive-include octoprint_influxdb/templates *
+recursive-include octoprint_influxdb/translations *
+recursive-include octoprint_influxdb/static *
