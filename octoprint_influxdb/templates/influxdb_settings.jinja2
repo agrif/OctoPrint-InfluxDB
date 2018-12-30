@@ -72,4 +72,13 @@
       </span>
     </div>
   </div>
+
+  <h4>{{ _('Measurements') }}</h4>
+  <p>{{ _('As configured, this plugin will write the following measurements to the %(db)s database:', db='<tt data-bind="text: settings.plugins.influxdb.database"></tt>') }}</p>
+  <dl>
+    <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>temperature</dt>
+    <dd>{{ _('Recorded and target temperatures for the bed and tools.') }}</dd>
+    <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>events</dt>
+    <dd>{{ _('Print state changes, like %(ex1)s and %(ex2)s.', ex1='<tt>PrintStarted</tt>', ex2='<tt>PrintDone</tt>') }}</dd>
+  </dl>
 </form>
