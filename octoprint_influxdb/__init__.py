@@ -20,7 +20,8 @@ def __plugin_load__():
 		"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
 	}
 
-class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
+class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
+                     octoprint.plugin.SettingsPlugin,
                      octoprint.plugin.StartupPlugin,
                      octoprint.plugin.TemplatePlugin):
 
@@ -146,10 +147,32 @@ class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
 
 		self.influx_emit('temperature', fields)
 
-	##~~ StartupPlugin mixin
+	##~~ EventHandlerPlugin mixin
 
-	def on_after_startup(self):
-		self.influx_reconnect()
+	# what events should we report to influx
+	influx_events = set([
+		'PrintStarted',
+		'PrintFailed',
+		'PrintDone',
+		'PrintCancelled',
+		'PrintPaused',
+		'PrintResumed',
+	])
+
+	# what are bad names for tags that we should change
+	influx_tag_blacklist = set([
+		'time',
+	])
+
+	def on_event(self, event, payload):
+		if not event in self.influx_events:
+			return
+		tags = payload.copy()
+		for tag in list(tags.keys()):
+			if tag in self.influx_tag_blacklist:
+				tags[tag + '_'] = tags[tag]
+				del tags[tag]
+		self.influx_emit('events', {'type': event}, extra_tags=tags)
 
 	##~~ SettingsPlugin mixin
 
@@ -186,6 +209,11 @@ class InfluxDBPlugin(octoprint.plugin.SettingsPlugin,
 
 	def on_settings_save(self, data):
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+		self.influx_reconnect()
+
+	##~~ StartupPlugin mixin
+
+	def on_after_startup(self):
 		self.influx_reconnect()
 
 	##~~ TemplatePlugin mixin
