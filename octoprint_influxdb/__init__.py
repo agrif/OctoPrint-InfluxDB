@@ -98,7 +98,9 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 		if self.influx_db is None or kwargs != self.influx_kwargs:
 			self.influx_db = self.influx_try_connect(kwargs)
-			self.influx_kwargs = kwargs
+			if self.influx_db:
+				self.influx_kwargs = kwargs
+				self.influx_prefix = self._settings.get(['prefix']) or ''
 
 		# start a new timer
 		if self.influx_db:
@@ -115,7 +117,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		# because python cannot into timezones until Python 3
 		time = datetime.datetime.utcnow().isoformat() + 'Z'
 		point = {
-			'measurement': measurement,
+			'measurement': self.influx_prefix + measurement,
 			'tags': tags,
 			'time': time,
 			'fields': fields,
@@ -188,10 +190,11 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			ssl=False,
 			verify_ssl=True,
 			database='octoprint',
+			prefix='',
 			username=None,
 			password=None,
 
-			interval=10,
+			interval=1,
 		)
 
 	def get_settings_restricted_paths(self):
