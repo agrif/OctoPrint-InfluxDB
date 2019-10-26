@@ -151,6 +151,11 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	##~~ EventHandlerPlugin mixin
 
+        def on_print_progress(self, storage, path, progress):
+                fields = {}
+                fields['pct'] = progress
+                self.influx_emit('progress', fields)
+        
 	# what events should we report to influx
 	influx_events = set([
 		'PrintStarted',
