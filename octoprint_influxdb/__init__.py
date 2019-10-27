@@ -23,6 +23,7 @@ def __plugin_load__():
 class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
                      octoprint.plugin.SettingsPlugin,
                      octoprint.plugin.StartupPlugin,
+                     octoprint.plugin.ProgressPlugin,
                      octoprint.plugin.TemplatePlugin):
 
 	## our logic
