@@ -80,5 +80,7 @@
     <dd>{{ _('Recorded and target temperatures for the bed and tools.') }}</dd>
     <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>events</dt>
     <dd>{{ _('Print state changes, like %(ex1)s and %(ex2)s.', ex1='<tt>PrintStarted</tt>', ex2='<tt>PrintDone</tt>') }}</dd>
+    <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>progress</dt>
+    <dd>{{ _('Print progress.') }}</dd>
   </dl>
 </form>
