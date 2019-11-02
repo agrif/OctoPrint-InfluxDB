@@ -9,7 +9,9 @@ import octoprint.util
 import influxdb
 import requests.exceptions
 
+# control properties
 __plugin_name__ = "InfluxDB Plugin"
+__plugin_pythoncompat__ = ">=2.7, <4"
 
 def __plugin_load__():
 	global __plugin_implementation__
