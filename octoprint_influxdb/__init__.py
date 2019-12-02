@@ -64,7 +64,16 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			self.influx_flash_exception('Cannot connect to InfluxDB server.')
 			return None
 		try:
-			db.create_database(dbname)
+			for dbmeta in db.get_list_database():
+				if dbmeta['name'] == dbname:
+					# database exists, do not create
+					self._logger.info('Using existing database `{0}`'.format(dbname))
+					break
+			else:
+				# database does not exist, try to create it
+				self._logger.info('Database `{0}` does not exist, creating...'.format(dbname))
+				db.create_database(dbname)
+			# ok, now switch to the database
 			db.switch_database(dbname)
 		except Exception:
 			# something went wrong making the database
