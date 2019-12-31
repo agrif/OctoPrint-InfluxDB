@@ -122,9 +122,26 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			self.influx_timer = octoprint.util.RepeatedTimer(interval, self.influx_gather)
 			self.influx_timer.start()
 
+	# what are bad names for tags that we should change
+	influx_name_blacklist = set([
+		'time',
+	])
+
 	def influx_emit(self, measurement, fields, extra_tags={}):
 		tags = self.influx_common_tags.copy()
 		tags.update(extra_tags)
+		fields = fields.copy()
+
+		# make sure we don't use any keywords as names
+		for k in list(tags.keys()):
+			if k in self.influx_name_blacklist:
+				tags[k + '_'] = tags[k]
+				del tags[k]
+		for k in list(fields.keys()):
+			if k in self.influx_name_blacklist:
+				fields[k + '_'] = fields[k]
+				del fields[k]
+
 		# python doesn't put the Z at the end
 		# because python cannot into timezones until Python 3
 		time = datetime.datetime.utcnow().isoformat() + 'Z'
@@ -168,30 +185,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		fields['pct'] = progress
 		self.influx_emit('progress', fields)
 
-	# what events should we report to influx
-	influx_events = set([
-		'PrintStarted',
-		'PrintFailed',
-		'PrintDone',
-		'PrintCancelled',
-		'PrintPaused',
-		'PrintResumed',
-	])
-
-	# what are bad names for tags that we should change
-	influx_tag_blacklist = set([
-		'time',
-	])
-
 	def on_event(self, event, payload):
-		if not event in self.influx_events:
-			return
-		tags = payload.copy()
-		for tag in list(tags.keys()):
-			if tag in self.influx_tag_blacklist:
-				tags[tag + '_'] = tags[tag]
-				del tags[tag]
-		self.influx_emit('events', {'type': event}, extra_tags=tags)
+		self.influx_emit('events', {'type': event}, extra_tags=payload)
 
 	##~~ SettingsPlugin mixin
 
