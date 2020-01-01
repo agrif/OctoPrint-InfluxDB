@@ -79,8 +79,10 @@
     <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>temperature</dt>
     <dd>{{ _('Recorded and target temperatures for the bed and tools.') }}</dd>
     <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>events</dt>
-    <dd>{{ _('Print state changes, like %(ex1)s and %(ex2)s.', ex1='<tt>PrintStarted</tt>', ex2='<tt>PrintDone</tt>') }}</dd>
+    <dd>{{ _('OctoPrint events, like %(ex1)s and %(ex2)s.', ex1='<tt>PrintStarted</tt>', ex2='<tt>PrintDone</tt>') }}</dd>
     <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>progress</dt>
     <dd>{{ _('Print progress.') }}</dd>
+    <dt><span data-bind="text: settings.plugins.influxdb.prefix"></span>state</dt>
+    <dd>{{ _('Printer state and loaded file details.') }}</dd>
   </dl>
 </form>

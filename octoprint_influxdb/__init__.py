@@ -25,7 +25,6 @@ def __plugin_load__():
 class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
                      octoprint.plugin.SettingsPlugin,
                      octoprint.plugin.StartupPlugin,
-                     octoprint.plugin.ProgressPlugin,
                      octoprint.plugin.TemplatePlugin):
 
 	## our logic
@@ -129,7 +128,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	def influx_emit(self, measurement, fields, extra_tags={}):
 		tags = self.influx_common_tags.copy()
-		tags.update(extra_tags)
+		if extra_tags:
+			tags.update(extra_tags)
 		fields = fields.copy()
 
 		# make sure we don't use any keywords as names
@@ -168,25 +168,73 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			return
 
 		temps = self._printer.get_current_temperatures()
-		if not temps:
-			return
+		if temps:
+			fields = {}
+			for sensor in temps:
+				for subfield in temps[sensor]:
+					fields[sensor + '_' + subfield] = temps[sensor][subfield]
 
-		fields = {}
-		for sensor in temps:
-			for subfield in temps[sensor]:
-				fields[sensor + '_' + subfield] = temps[sensor][subfield]
+			self.influx_emit('temperature', fields)
 
-		self.influx_emit('temperature', fields)
+		data = self._printer.get_current_data()
+		def add_to(d, k, x):
+			if x:
+				d[k] = x
+
+		if data and data.get('progress'):
+			# a file is printing!
+			progress = data['progress']
+			fields = {}
+			add_to(fields, 'current_z', data.get('currentZ'))
+			# added in 1.x but probably should not exist
+			# it's an integer between 0 and 100!
+			pct = progress.get('completion')
+			if pct:
+				pct = int(round(pct))
+			add_to(fields, 'pct', pct)
+			# this is the version that should exist
+			# still 0-100 because octoprint likes that, but float
+			add_to(fields, 'completion', progress.get('completion'))
+			add_to(fields, 'filepos', progress.get('filepos'))
+			add_to(fields, 'print_time', progress.get('printTime'))
+			add_to(fields, 'print_time_left', progress.get('printTimeLeft'))
+			add_to(fields, 'print_time_left_origin', progress.get('printTimeLeftOrigin'))
+			if fields:
+				self.influx_emit('progress', fields)
 
 	##~~ EventHandlerPlugin mixin
 
-	def on_print_progress(self, storage, path, progress):
-		fields = {}
-		fields['pct'] = progress
-		self.influx_emit('progress', fields)
-
 	def on_event(self, event, payload):
+		# if we're not connected, do nothing
+		if not self.influx_db:
+			return
 		self.influx_emit('events', {'type': event}, extra_tags=payload)
+
+		# state changes happen on events, so...
+		if not self._printer.is_operational():
+			return
+		job = self._printer.get_current_job()
+		data = self._printer.get_current_data()
+		def add_to(d, k, x):
+			if x:
+				d[k] = x
+
+		if job.get('file', {}).get('name'):
+			# a file is loaded...
+			fields = {}
+			jobfile = job['file']
+			add_to(fields, 'state', data.get('state', {}).get('text'))
+			add_to(fields, 'average_print_time', job.get('averagePrintTime'))
+			add_to(fields, 'estimated_print_time', job.get('estimatedPrintTime'))
+			for filname, filval in job.get('filament', {}).items():
+				add_to(fields, 'filament_' + filname + '_length', filval.get('length'))
+				add_to(fields, 'filament_' + filname + '_volume', filval.get('volume'))
+			add_to(fields, 'file_date', jobfile.get('date'))
+			add_to(fields, 'file', jobfile.get('display'))
+			add_to(fields, 'file_size', jobfile.get('size'))
+			add_to(fields, 'last_print_time', job.get('lastPrintTime'))
+			add_to(fields, 'user', job.get('user'))
+			self.influx_emit('state', fields)
 
 	##~~ SettingsPlugin mixin
 
