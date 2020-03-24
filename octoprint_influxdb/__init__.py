@@ -226,7 +226,10 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			add_to(fields, 'state', data.get('state', {}).get('text'))
 			add_to(fields, 'average_print_time', job.get('averagePrintTime'))
 			add_to(fields, 'estimated_print_time', job.get('estimatedPrintTime'))
-			for filname, filval in job.get('filament', {}).items():
+			filaments = job.get('filament')
+			if not filaments:
+				filaments = {}
+			for filname, filval in filaments.items():
 				add_to(fields, 'filament_' + filname + '_length', filval.get('length'))
 				add_to(fields, 'filament_' + filname + '_volume', filval.get('volume'))
 			add_to(fields, 'file_date', jobfile.get('date'))
