@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import platform
 import datetime
+import sys
 
 import octoprint.plugin
 import octoprint.util
@@ -12,6 +13,11 @@ import monotonic
 # control properties
 __plugin_name__ = "InfluxDB Plugin"
 __plugin_pythoncompat__ = ">=2.7, <4"
+
+# types allowed in fields
+ALLOWED_TYPES = (str, float, int, bool)
+if sys.version_info < (3, 0):
+	ALLOWED_TYPES = (unicode,) + ALLOWED_TYPES
 
 def __plugin_load__():
 	global __plugin_implementation__
@@ -142,6 +148,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		tags = self.influx_common_tags.copy()
 		if extra_tags:
 			tags.update(extra_tags)
+
 		fields = fields.copy()
 
 		# make sure we don't use any keywords as names
@@ -149,10 +156,18 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			if k in self.influx_name_blacklist:
 				tags[k + '_'] = tags[k]
 				del tags[k]
-		for k in list(fields.keys()):
+		for k, v in list(fields.items()):
+			# also, make sure we give influx only data it can handle
+			if not isinstance(v, ALLOWED_TYPES):
+				del fields[k]
+				continue
 			if k in self.influx_name_blacklist:
 				fields[k + '_'] = fields[k]
 				del fields[k]
+
+		# empty fields are an issue for influx, so
+		if not fields:
+			fields['_dummy'] = 0
 
 		# python doesn't put the Z at the end
 		# because python cannot into timezones until Python 3
@@ -220,7 +235,10 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		# if we're not connected, do nothing
 		if not self.influx_connected():
 			return
-		self.influx_emit('events', {'type': event}, extra_tags=payload)
+
+		if not payload:
+			payload = {}
+		self.influx_emit('events', payload, extra_tags={'type': event})
 
 		# state changes happen on events, so...
 		if not self._printer.is_operational():
