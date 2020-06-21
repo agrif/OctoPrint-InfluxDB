@@ -8,7 +8,6 @@ import octoprint.plugin
 import octoprint.util
 import influxdb
 import monotonic
-import requests.exceptions
 
 # control properties
 __plugin_name__ = "InfluxDB Plugin"
