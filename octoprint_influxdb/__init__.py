@@ -7,6 +7,7 @@ import datetime
 import octoprint.plugin
 import octoprint.util
 import influxdb
+import monotonic
 import requests.exceptions
 
 # control properties
@@ -32,6 +33,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 	def __init__(self):
 		self.influx_timer = None
 		self.influx_db = None
+		self.influx_last_reconnect = None
 		self.influx_kwargs = None
 		self.influx_common_tags = {
 			'host': platform.node(),
@@ -80,7 +82,18 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			return None
 		return db
 
-	def influx_reconnect(self):
+	def influx_connected(self):
+		if self.influx_db:
+			return True
+		self.influx_reconnect()
+		return bool(self.influx_db)
+
+	def influx_reconnect(self, force=False):
+		now = monotonic.monotonic()
+		if not (force or self.influx_last_reconnect is None or self.influx_last_reconnect + 10 < now):
+			# don't attempt to reconnect more than once per 10s
+			return
+		self.influx_last_reconnect = now
 		# stop the old timer, if we need to
 		if self.influx_timer:
 			self.influx_timer.cancel()
@@ -161,7 +174,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	def influx_gather(self):
 		# if we're not connected to a database, do nothing
-		if not self.influx_db:
+		if not self.influx_connected():
 			return
 		# if we're not connected to a printer, do nothing
 		if not self._printer.is_operational():
@@ -206,7 +219,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	def on_event(self, event, payload):
 		# if we're not connected, do nothing
-		if not self.influx_db:
+		if not self.influx_connected():
 			return
 		self.influx_emit('events', {'type': event}, extra_tags=payload)
 
@@ -275,12 +288,12 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	def on_settings_save(self, data):
 		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
-		self.influx_reconnect()
+		self.influx_reconnect(True)
 
 	##~~ StartupPlugin mixin
 
 	def on_after_startup(self):
-		self.influx_reconnect()
+		self.influx_reconnect(True)
 
 	##~~ TemplatePlugin mixin
 
