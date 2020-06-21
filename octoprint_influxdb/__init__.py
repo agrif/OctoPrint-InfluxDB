@@ -241,19 +241,21 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		self.influx_emit('events', payload, extra_tags={'type': event})
 
 		# state changes happen on events, so...
-		if not self._printer.is_operational():
+		if event not in ['PrinterStateChanged', 'FileSelected', 'FileDeselected', 'MetadataAnalysisFinished']:
+			# state hasn't changed
 			return
+
 		job = self._printer.get_current_job()
 		data = self._printer.get_current_data()
 		def add_to(d, k, x):
 			if x:
 				d[k] = x
 
+		fields = {}
+		add_to(fields, 'state', data.get('state', {}).get('text'))
 		if job.get('file', {}).get('name'):
 			# a file is loaded...
-			fields = {}
 			jobfile = job['file']
-			add_to(fields, 'state', data.get('state', {}).get('text'))
 			add_to(fields, 'average_print_time', job.get('averagePrintTime'))
 			add_to(fields, 'estimated_print_time', job.get('estimatedPrintTime'))
 			filaments = job.get('filament')
@@ -267,6 +269,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			add_to(fields, 'file_size', jobfile.get('size'))
 			add_to(fields, 'last_print_time', job.get('lastPrintTime'))
 			add_to(fields, 'user', job.get('user'))
+		if fields:
 			self.influx_emit('state', fields)
 
 	##~~ SettingsPlugin mixin
