@@ -29,6 +29,7 @@ def __plugin_load__():
 	}
 
 class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
+                     octoprint.plugin.RestartNeedingPlugin, # see issue #14
                      octoprint.plugin.SettingsPlugin,
                      octoprint.plugin.StartupPlugin,
                      octoprint.plugin.TemplatePlugin):
