@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 
 import platform
+import socket
 import datetime
 import sys
 
@@ -18,6 +19,11 @@ __plugin_pythoncompat__ = ">=2.7, <4"
 ALLOWED_TYPES = (str, float, int, bool)
 if sys.version_info < (3, 0):
 	ALLOWED_TYPES = (unicode,) + ALLOWED_TYPES
+
+# host methods
+HOST_NODE = "node"
+HOST_FQDN = "fqdn"
+HOST_CUSTOM = "custom"
 
 def __plugin_load__():
 	global __plugin_implementation__
@@ -41,9 +47,31 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		self.influx_db = None
 		self.influx_last_reconnect = None
 		self.influx_kwargs = None
-		self.influx_common_tags = {
-			'host': platform.node(),
-		}
+
+	@property
+	def influx_common_tags(self):
+		return dict(
+			host=self.influx_host_from_method(
+				self._settings.get(['hostmethod'])),
+		)
+
+	def influx_host_from_method(self, method):
+		if method == HOST_NODE:
+			return platform.node()
+		elif method == HOST_FQDN:
+			try:
+				return socket.getaddrinfo(
+					socket.gethostname(),
+					0, 0, 0, 0,
+					socket.AI_CANONNAME,
+				)[0][3]
+			except Exception:
+				return socket.fqdn()
+		elif method == HOST_CUSTOM:
+			return self._settings.get(['hostcustom'])
+		else:
+			# reasonable fallback
+			return platform.node()
 
 	def influx_flash_exception(self, message):
 		self._logger.exception(message)
@@ -288,6 +316,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			verify_ssl=True,
 			database='octoprint',
 			prefix='',
+			hostmethod=HOST_NODE,
+			hostcustom='octoprint',
 			username=None,
 			password=None,
 
@@ -308,8 +338,9 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			raise RuntimeError("could not migrate InfluxDB settings")
 
 	def on_settings_save(self, data):
-		octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+		r = octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
 		self.influx_reconnect(True)
+		return r
 
 	##~~ StartupPlugin mixin
 
@@ -322,6 +353,17 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		return [
 			dict(type="settings", custom_bindings=False),
 		]
+
+	def get_template_vars(self):
+		return dict(
+			host_node=HOST_NODE,
+			host_node_s=self.influx_host_from_method(HOST_NODE),
+
+			host_fqdn=HOST_FQDN,
+			host_fqdn_s=self.influx_host_from_method(HOST_FQDN),
+
+			host_custom=HOST_CUSTOM,
+		)
 
 	##~~ Softwareupdate hook
 

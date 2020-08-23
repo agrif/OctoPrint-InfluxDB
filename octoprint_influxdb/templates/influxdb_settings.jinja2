@@ -42,6 +42,28 @@
         {{ _('Measurement names will be prefixed by this string. Helpful when sharing a database.') }}
       </span>
     </div>
+
+    <label class="control-label">{{ _('%(host)s Tag', host='<tt>host</tt>') }}</label>
+    <div class="controls">
+      <label class="radio">
+        <input type="radio" class="input-medium" id="influxdb.host_node" name="influxdb.hostmethod" value="{{ plugin_influxdb_host_node }}" data-bind="checked: settings.plugins.influxdb.hostmethod">
+        <tt>{{ plugin_influxdb_host_node_s }}</tt>
+        ({{ _('node name') }})
+      </label>
+      <label class="radio">
+        <input type="radio" class="input-medium" id="influxdb.host_fqdn" name="influxdb.hostmethod" value="{{ plugin_influxdb_host_fqdn }}" data-bind="checked: settings.plugins.influxdb.hostmethod">
+        <tt>{{ plugin_influxdb_host_fqdn_s }}</tt>
+        ({{ _('fully-qualified domain name') }})
+      </label>
+      <label class="radio">
+        <input type="radio" class="input-medium" id="influxdb.host_custom" name="influxdb.hostmethod" value="{{ plugin_influxdb_host_custom }}" data-bind="checked: settings.plugins.influxdb.hostmethod">
+        {{ _('Custom:') }}
+        <input type="text" class="input-medium" placeholder="(empty)" data-bind="value: settings.plugins.influxdb.hostcustom, enable: settings.plugins.influxdb.hostmethod() == '{{ plugin_influxdb_host_custom }}'">
+      </label>
+      <span class="help-block">
+        {{ _('Measurements will be tagged with this value for %(host)s.', host='<tt>host</tt>') }}
+      </span>
+    </div>
   </div>
 
   <div class="control-group" data-bind="visible: settings.plugins.influxdb.authenticate">
