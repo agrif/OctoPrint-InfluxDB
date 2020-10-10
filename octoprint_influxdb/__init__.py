@@ -159,6 +159,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			if self.influx_db:
 				self.influx_kwargs = kwargs
 				self.influx_prefix = self._settings.get(['prefix']) or ''
+				self.influx_retention_policy = self._settings.get(['retention_policy']) or None
 
 		# start a new timer
 		if self.influx_db:
@@ -208,7 +209,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			'fields': fields,
 		}
 		try:
-			self.influx_db.write_points([point])
+			self.influx_db.write_points([point], retention_policy=self.influx_retention_policy)
 		except Exception:
 			# we were dropped! try to reconnect
 			self.influx_flash_exception("Disconnected from InfluxDB. Attempting to reconnect.")
@@ -320,7 +321,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			hostcustom='octoprint',
 			username=None,
 			password=None,
-
+			retention_policy=None,
 			interval=1,
 		)
 

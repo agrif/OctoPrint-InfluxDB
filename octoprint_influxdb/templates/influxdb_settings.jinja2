@@ -35,6 +35,16 @@
 
     <br>
 
+    <label class="control-label">{{ _('Retention Policy') }}</label>
+    <div class="controls">
+      <input type="text" class="input-medium" placeholder="None" data-bind="value: settings.plugins.influxdb.retention_policy">
+      <span class="help-block">
+        {{ _('If not specified the default policy of None will be used. The retention policy must be created on the database before setting this value.') }}
+      </span>
+    </div>
+
+    <br>
+
     <label class="control-label">{{ _('Prefix') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="(no prefix)" data-bind="value: settings.plugins.influxdb.prefix">
@@ -42,7 +52,7 @@
         {{ _('Measurement names will be prefixed by this string. Helpful when sharing a database.') }}
       </span>
     </div>
-
+    
     <label class="control-label">{{ _('%(host)s Tag', host='<tt>host</tt>') }}</label>
     <div class="controls">
       <label class="radio">
