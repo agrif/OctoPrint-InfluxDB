@@ -20,6 +20,13 @@ ALLOWED_TYPES = (str, float, int, bool)
 if sys.version_info < (3, 0):
 	ALLOWED_TYPES = (unicode,) + ALLOWED_TYPES
 
+
+# On events cast theses fields with the function in value
+EVENT_CAST_FIELDS = {
+	'new': str,
+	'old': str
+}
+
 # host methods
 HOST_NODE = "node"
 HOST_FQDN = "fqdn"
@@ -268,6 +275,10 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 		if not payload:
 			payload = {}
+
+		for field in payload:
+			if field in EVENT_CAST_FIELDS:
+				payload[field] = EVENT_CAST_FIELDS[field](payload[field])
 		self.influx_emit('events', payload, extra_tags={'type': event})
 
 		# state changes happen on events, so...
