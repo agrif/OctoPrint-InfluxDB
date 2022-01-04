@@ -4,22 +4,12 @@
   <div class="control-group">
     <label class="control-label">{{ _('Hostname and Port') }}</label>
     <div class="controls">
-      <input type="text" class="input-medium" placeholder="localhost" data-bind="value: settings.plugins.influxdb.host">
-      <input type="number" step="1" class="input-small" data-bind="value: settings.plugins.influxdb.port, attr: {placeholder: settings.plugins.influxdb.udp() ? 4444 : 8086}">
+      <input type="text" class="input-medium" placeholder="http://localhost:8086" data-bind="value: settings.plugins.influxdb.url">
     </div>
 
     <div class="controls">
       <label class="checkbox inline">
         <input type="checkbox" data-bind="checked: settings.plugins.influxdb.authenticate"> {{ _('Authenticate') }}
-      </label>
-      <label class="checkbox inline">
-        <input type="checkbox" data-bind="checked: settings.plugins.influxdb.udp"> {{ _('Use UDP') }}
-      </label>
-      <label class="checkbox inline">
-        <input type="checkbox" data-bind="checked: settings.plugins.influxdb.ssl"> {{ _('Use SSL') }}
-      </label>
-      <label class="checkbox inline" data-bind="css: {muted: !settings.plugins.influxdb.ssl() }">
-        <input type="checkbox" data-bind="checked: settings.plugins.influxdb.verify_ssl, enable: settings.plugins.influxdb.ssl"> {{ _('Verify SSL') }}
       </label>
     </div>
   </div>
@@ -76,18 +66,18 @@
     </div>
   </div>
 
-  <div class="control-group" data-bind="visible: settings.plugins.influxdb.authenticate">
+  <div class="control-group">
     <h4>{{ _('Authentication Info') }}</h4>
-    <label class="control-label">{{ _('Username') }}</label>
+    <label class="control-label">{{ _('Org Name') }}</label>
     <div class="controls">
-      <input type="text" class="input-medium" placeholder="{{ _('Username') }}" data-bind="value: settings.plugins.influxdb.username">
+      <input type="text" class="input-medium" placeholder="{{ _('Org Name') }}" data-bind="value: settings.plugins.influxdb.org">
     </div>
 
     <br>
 
-    <label class="control-label">{{ _('Password') }}</label>
+    <label class="control-label">{{ _('Token') }}</label>
     <div class="controls">
-      <input type="password" class="input-medium" placeholder="{{ _('Password') }}" data-bind="value: settings.plugins.influxdb.password">
+      <input type="password" class="input-medium" placeholder="{{ _('Token') }}" data-bind="value: settings.plugins.influxdb.token">
     </div>
   </div>
 

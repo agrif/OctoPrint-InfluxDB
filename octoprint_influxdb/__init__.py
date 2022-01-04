@@ -8,7 +8,7 @@ import sys
 
 import octoprint.plugin
 import octoprint.util
-import influxdb
+from influxdb_client import InfluxDBClient
 import monotonic
 
 # control properties
@@ -81,38 +81,18 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		# create a safe copy we can dump out to the log, modify fields
 		kwargs = kwargs.copy()
 		kwargs_safe = kwargs.copy()
-		for k in ['username', 'password']:
+		for k in ['token']:
 			if k in kwargs_safe:
 				del kwargs_safe[k]
 		kwargs_log = ", ".join("{}={!r}".format(*v) for v in sorted(kwargs_safe.items()))
 		self._logger.info("connecting: {}".format(kwargs_log))
 
-		dbname = 'octoprint'
-		if 'database' in kwargs:
-			dbname = kwargs.pop('database')
-
 		try:
-			db = influxdb.InfluxDBClient(**kwargs)
+			db = InfluxDBClient(**kwargs)
 			db.ping()
 		except Exception:
 			# something went wrong connecting :(
 			self.influx_flash_exception('Cannot connect to InfluxDB server.')
-			return None
-		try:
-			for dbmeta in db.get_list_database():
-				if dbmeta['name'] == dbname:
-					# database exists, do not create
-					self._logger.info('Using existing database `{0}`'.format(dbname))
-					break
-			else:
-				# database does not exist, try to create it
-				self._logger.info('Database `{0}` does not exist, creating...'.format(dbname))
-				db.create_database(dbname)
-			# ok, now switch to the database
-			db.switch_database(dbname)
-		except Exception:
-			# something went wrong making the database
-			self.influx_flash_exception('Cannot create InfluxDB database.')
 			return None
 		return db
 
@@ -140,26 +120,16 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			if v:
 				kwargs[kwargsname] = v
 
-		add_arg_if_exists('host', ['host'])
-		add_arg_if_exists('port', ['port'], self._settings.get_int)
-		if self._settings.get_boolean(['authenticate']):
-			add_arg_if_exists('username', ['username'])
-			add_arg_if_exists('password', ['password'])
+		add_arg_if_exists('url', ['url'])
+		add_arg_if_exists('org', ['org'])
+		add_arg_if_exists('token', ['token'])
 		add_arg_if_exists('database', ['database'])
-		kwargs['ssl'] = self._settings.get_boolean(['ssl'])
-		if kwargs['ssl']:
-			kwargs['verify_ssl'] = self._settings.get_boolean(['verify_ssl'])
-		kwargs['use_udp'] = self._settings.get_boolean(['udp'])
-		if kwargs['use_udp'] and 'port' in kwargs:
-			kwargs['udp_port'] = kwargs['port']
-			del kwargs['port']
 
 		if self.influx_db is None or kwargs != self.influx_kwargs:
 			self.influx_db = self.influx_try_connect(kwargs)
 			if self.influx_db:
 				self.influx_kwargs = kwargs
 				self.influx_prefix = self._settings.get(['prefix']) or ''
-				self.influx_retention_policy = self._settings.get(['retention_policy']) or None
 
 		# start a new timer
 		if self.influx_db:
@@ -209,7 +179,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			'fields': fields,
 		}
 		try:
-			self.influx_db.write_points([point], retention_policy=self.influx_retention_policy)
+			write_api = self.influx_db.write_api()
+			write_api.write(self.influx_kwargs['database'], self.influx_kwargs['org'], [point])
 		except Exception:
 			# we were dropped! try to reconnect
 			self.influx_flash_exception("Disconnected from InfluxDB. Attempting to reconnect.")
@@ -309,26 +280,18 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 
 	def get_settings_defaults(self):
 		return dict(
-			host=None,
-			port=None,
-			authenticate=False,
-			udp=False,
-			ssl=False,
-			verify_ssl=True,
+			url=None,
 			database='octoprint',
 			prefix='',
 			hostmethod=HOST_NODE,
 			hostcustom='octoprint',
-			username=None,
-			password=None,
-			retention_policy=None,
-			interval=1,
+			org=None,
+			token=None,
+			interval=10,
 		)
 
 	def get_settings_restricted_paths(self):
 		return dict(admin=[
-			['username'],
-			['password'],
 		])
 
 	def on_settings_migrate(self, target, current):
