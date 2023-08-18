@@ -46,3 +46,9 @@ class InfluxDB1Client:
 
 	def write_points(self, points, retention_policy=None):
 		self.client.write_points(points, retention_policy=retention_policy)
+
+	def close(self):
+		try:
+			self.client.close()
+		except Exception:
+			pass

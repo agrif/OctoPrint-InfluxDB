@@ -33,7 +33,7 @@ plugin_url = "https://github.com/agrif/OctoPrint-InfluxDB"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["influxdb>=5.2,<6", "monotonic>=1.5,<1.6"]
+plugin_requires = ["influxdb>=5.2,<6", "influxdb-client>=1.37,<2", "monotonic>=1.5,<2"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point

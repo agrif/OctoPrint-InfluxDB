@@ -11,6 +11,7 @@ import octoprint.util
 import monotonic
 
 import octoprint_influxdb.influxdb1
+import octoprint_influxdb.influxdb2
 
 # control properties
 __plugin_name__ = "InfluxDB Plugin"
@@ -33,6 +34,14 @@ HOST_NODE = "node"
 HOST_FQDN = "fqdn"
 HOST_CUSTOM = "custom"
 
+# keys that should be admin-only and not appear in logs
+SECRET_KEYS = [
+	'username',
+	'password',
+	'token',
+	'org',
+]
+
 def __plugin_load__():
 	global __plugin_implementation__
 	__plugin_implementation__ = InfluxDBPlugin()
@@ -54,6 +63,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		self.influx_timer = None
 		self.influx_db = None
 		self.influx_last_reconnect = None
+		self.influx_class = None
 		self.influx_kwargs = None
 
 	@property
@@ -86,28 +96,41 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		# FIXME flash something to the user, probably needs JS
 
 	def influx_get_client_class(self):
-		return octoprint_influxdb.influxdb1.InfluxDB1Client
+		version = self._settings.get_int(['api_version'])
+		if not version:
+			version = self.get_settings_defaults()['api_version']
+		if version == 1:
+			return octoprint_influxdb.influxdb1.InfluxDB1Client
+		elif version == 2:
+			return octoprint_influxdb.influxdb2.InfluxDB2Client
+		else:
+			# reasonable fallback
+			return octoprint_influxdb.influxdb2.InfluxDB2Client
 
 	def influx_try_connect(self, kwargs):
 		# create a safe copy we can dump out to the log, modify fields
 		kwargs = kwargs.copy()
 		kwargs_safe = kwargs.copy()
-		for k in ['username', 'password']:
+		for k in SECRET_KEYS:
 			if k in kwargs_safe:
 				del kwargs_safe[k]
 		kwargs_log = ", ".join("{}={!r}".format(*v) for v in sorted(kwargs_safe.items()))
-		self._logger.info("connecting: {}".format(kwargs_log))
+		klass = self.influx_get_client_class()
+		self._logger.info("connecting: {} with {}".format(klass.__name__, kwargs_log))
 
 		dbname = 'octoprint'
 		if 'database' in kwargs:
 			dbname = kwargs.pop('database')
 
+		db = None
 		try:
-			db = self.influx_get_client_class()(**kwargs)
+			db = klass(**kwargs)
 			db.ping()
 		except Exception:
 			# something went wrong connecting :(
 			self.influx_flash_exception('Cannot connect to InfluxDB server.')
+			if db:
+				db.close()
 			return None
 		try:
 			if db.check_database(dbname):
@@ -122,6 +145,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		except Exception:
 			# something went wrong making the database
 			self.influx_flash_exception('Cannot create InfluxDB database.')
+			if db:
+				db.close()
 			return None
 		return db
 
@@ -142,12 +167,14 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			self.influx_timer.cancel()
 			self.influx_timer = None
 
-		kwargs = self.influx_get_client_class().get_kwargs(self._settings)
+		klass = self.influx_get_client_class()
+		kwargs = klass.get_kwargs(self._settings)
 
-		if self.influx_db is None or kwargs != self.influx_kwargs:
+		if self.influx_db is None or kwargs != self.influx_kwargs or klass is not self.influx_class:
 			self.influx_db = self.influx_try_connect(kwargs)
 			if self.influx_db:
 				self.influx_kwargs = kwargs
+				self.influx_class = klass
 				self.influx_prefix = self._settings.get(['prefix']) or ''
 				self.influx_retention_policy = self._settings.get(['retention_policy']) or None
 
@@ -203,6 +230,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		except Exception:
 			# we were dropped! try to reconnect
 			self.influx_flash_exception("Disconnected from InfluxDB. Attempting to reconnect.")
+			if self.influx_db:
+				self.influx_db.close()
 			self.influx_db = None
 			self.influx_reconnect()
 
@@ -299,15 +328,13 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 	##~~ SettingsPlugin mixin
 
 	def get_settings_version(self):
-		return 0
+		# see on_settings_migrate for the changes in each version
+		return 1
 
 	def get_settings_defaults(self):
 		return dict(
-			host=None,
-			port=None,
-			authenticate=False,
-			udp=False,
-			ssl=False,
+			# common
+			api_version=2,
 			verify_ssl=True,
 			database='octoprint',
 			prefix='',
@@ -315,20 +342,37 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			hostcustom='octoprint',
 			username=None,
 			password=None,
-			retention_policy=None,
 			interval=1,
+
+			# 1.x only
+			host=None,
+			port=None,
+			authenticate=False,
+			udp=False,
+			ssl=False,
+			retention_policy=None,
+
+			# 2.x only
+			url='http://localhost:8086',
+			use_username_password=False,
+			token=None,
+			org=None,
 		)
 
 	def get_settings_restricted_paths(self):
-		return dict(admin=[
-			['username'],
-			['password'],
-		])
+		return dict(admin=[[k] for k in SECRET_KEYS])
 
 	def on_settings_migrate(self, target, current):
 		if current is None:
-			current = 0
-		# do migration here, incrementing current
+			# no existing config, nothing to upgrade
+			return
+
+		if current == 0:
+			# 0 -> 1: add api_version field
+			# any version before this only supported 1.x, so
+			self._settings.set(['api_version'], 1, force=True)
+			current = 1
+
 		if target != current:
 			raise RuntimeError("could not migrate InfluxDB settings")
 

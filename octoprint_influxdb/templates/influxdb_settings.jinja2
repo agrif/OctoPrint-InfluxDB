@@ -2,6 +2,16 @@
 
 <form class="form-horizontal">
   <div class="control-group">
+    <label class="control-label">{{ _('API Version') }}</label>
+    <div class="controls">
+      <select data-bind="value: settings.plugins.influxdb.api_version">
+        <option value="1">{{ _('InfluxDB 1.x') }}</option>
+        <option value="2">{{ _('InfluxDB 2.x') }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 1">
     <label class="control-label">{{ _('Hostname and Port') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="localhost" data-bind="value: settings.plugins.influxdb.host">
@@ -24,7 +34,20 @@
     </div>
   </div>
 
-  <div class="control-group">
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 2">
+    <label class="control-label">{{ _('URL') }}</label>
+    <div class="controls">
+      <input type="text" class="input-medium" placeholder="http://localhost:8086" data-bind="value: settings.plugins.influxdb.url">
+    </div>
+
+    <div class="controls">
+      <label class="checkbox inline" data-bind="css: {muted: !settings.plugins.influxdb.url() || settings.plugins.influxdb.url().toLowerCase().indexOf(&quot;https://&quot;) != 0}">
+        <input type="checkbox" data-bind="checked: settings.plugins.influxdb.verify_ssl, enable: settings.plugins.influxdb.url() &amp;&amp; settings.plugins.influxdb.url().toLowerCase().indexOf(&quot;https://&quot;) == 0"> {{ _('Verify SSL') }}
+      </label>
+    </div>
+  </div>
+
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 1">
     <label class="control-label">{{ _('Database') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="octoprint" data-bind="value: settings.plugins.influxdb.database">
@@ -32,9 +55,19 @@
         {{ _('If this database does not exist on connection, the plugin will attempt to create it.') }}
       </span>
     </div>
+  </div>
 
-    <br>
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 2">
+    <label class="control-label">{{ _('Bucket') }}</label>
+    <div class="controls">
+      <input type="text" class="input-medium" placeholder="octoprint" data-bind="value: settings.plugins.influxdb.database">
+      <span class="help-block">
+        {{ _('If this bucket does not exist on connection, the plugin will attempt to create it.') }}
+      </span>
+    </div>
+  </div>
 
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 1">
     <label class="control-label">{{ _('Retention Policy') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="None" data-bind="value: settings.plugins.influxdb.retention_policy">
@@ -42,9 +75,9 @@
         {{ _('If not specified the default policy of None will be used. The retention policy must be created on the database before setting this value.') }}
       </span>
     </div>
+  </div>
 
-    <br>
-
+  <div class="control-group">
     <label class="control-label">{{ _('Prefix') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="(no prefix)" data-bind="value: settings.plugins.influxdb.prefix">
@@ -52,7 +85,9 @@
         {{ _('Measurement names will be prefixed by this string. Helpful when sharing a database.') }}
       </span>
     </div>
-    
+  </div>
+
+  <div class="control-group">
     <label class="control-label">{{ _('%(host)s Tag', host='<tt>host</tt>') }}</label>
     <div class="controls">
       <label class="radio">
@@ -76,14 +111,33 @@
     </div>
   </div>
 
-  <div class="control-group" data-bind="visible: settings.plugins.influxdb.authenticate">
-    <h4>{{ _('Authentication Info') }}</h4>
+  <h4 data-bind="visible: settings.plugins.influxdb.authenticate() || settings.plugins.influxdb.api_version() == 2">{{  ('Authentication Info') }}</h4>
+
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 2">
+    <div class="controls">
+      <label class="checkbox inline">
+        <input type="checkbox" data-bind="checked: settings.plugins.influxdb.use_username_password"> {{ _('Use Username and Password') }}
+      </label>
+    </div>
+  </div>
+
+  <div class="control-group" data-bind="visible: settings.plugins.influxdb.api_version() == 2">
+    <label class="control-label">{{ _('Organization') }}</label>
+    <div class="controls">
+      <input type="text" class="input-medium" placeholder="{{ _('Organization') }}" data-bind="value: settings.plugins.influxdb.org">
+    </div>
+
+    <label class="control-label" data-bind="visible: !settings.plugins.influxdb.use_username_password()">{{ _('Token') }}</label>
+    <div class="controls" data-bind="visible: !settings.plugins.influxdb.use_username_password()">
+      <input type="password" class="input-medium" placeholder="{{ _('Token') }}" data-bind="value: settings.plugins.influxdb.token">
+    </div>
+  </div>
+
+  <div class="control-group" data-bind="visible: (settings.plugins.influxdb.api_version() == 1 &amp;&amp; settings.plugins.influxdb.authenticate()) || (settings.plugins.influxdb.api_version() == 2 &amp;&amp; settings.plugins.influxdb.use_username_password())">
     <label class="control-label">{{ _('Username') }}</label>
     <div class="controls">
       <input type="text" class="input-medium" placeholder="{{ _('Username') }}" data-bind="value: settings.plugins.influxdb.username">
     </div>
-
-    <br>
 
     <label class="control-label">{{ _('Password') }}</label>
     <div class="controls">
