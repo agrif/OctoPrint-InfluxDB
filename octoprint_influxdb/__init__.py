@@ -8,8 +8,9 @@ import sys
 
 import octoprint.plugin
 import octoprint.util
-import influxdb
 import monotonic
+
+import octoprint_influxdb.influxdb1
 
 # control properties
 __plugin_name__ = "InfluxDB Plugin"
@@ -84,6 +85,9 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		self._logger.exception(message)
 		# FIXME flash something to the user, probably needs JS
 
+	def influx_get_client_class(self):
+		return octoprint_influxdb.influxdb1.InfluxDB1Client
+
 	def influx_try_connect(self, kwargs):
 		# create a safe copy we can dump out to the log, modify fields
 		kwargs = kwargs.copy()
@@ -99,18 +103,16 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			dbname = kwargs.pop('database')
 
 		try:
-			db = influxdb.InfluxDBClient(**kwargs)
+			db = self.influx_get_client_class()(**kwargs)
 			db.ping()
 		except Exception:
 			# something went wrong connecting :(
 			self.influx_flash_exception('Cannot connect to InfluxDB server.')
 			return None
 		try:
-			for dbmeta in db.get_list_database():
-				if dbmeta['name'] == dbname:
-					# database exists, do not create
-					self._logger.info('Using existing database `{0}`'.format(dbname))
-					break
+			if db.check_database(dbname):
+				# database exists, do not create
+				self._logger.info('Using existing database `{0}`'.format(dbname))
 			else:
 				# database does not exist, try to create it
 				self._logger.info('Database `{0}` does not exist, creating...'.format(dbname))
@@ -140,26 +142,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			self.influx_timer.cancel()
 			self.influx_timer = None
 
-		# build up some kwargs to pass to InfluxDBClient
-		kwargs = {}
-		def add_arg_if_exists(kwargsname, path, getter=self._settings.get):
-			v = getter(path)
-			if v:
-				kwargs[kwargsname] = v
-
-		add_arg_if_exists('host', ['host'])
-		add_arg_if_exists('port', ['port'], self._settings.get_int)
-		if self._settings.get_boolean(['authenticate']):
-			add_arg_if_exists('username', ['username'])
-			add_arg_if_exists('password', ['password'])
-		add_arg_if_exists('database', ['database'])
-		kwargs['ssl'] = self._settings.get_boolean(['ssl'])
-		if kwargs['ssl']:
-			kwargs['verify_ssl'] = self._settings.get_boolean(['verify_ssl'])
-		kwargs['use_udp'] = self._settings.get_boolean(['udp'])
-		if kwargs['use_udp'] and 'port' in kwargs:
-			kwargs['udp_port'] = kwargs['port']
-			del kwargs['port']
+		kwargs = self.influx_get_client_class().get_kwargs(self._settings)
 
 		if self.influx_db is None or kwargs != self.influx_kwargs:
 			self.influx_db = self.influx_try_connect(kwargs)
