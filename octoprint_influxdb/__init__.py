@@ -5,6 +5,7 @@ import platform
 import socket
 import datetime
 import sys
+import traceback
 
 import octoprint.plugin
 import octoprint.util
@@ -60,6 +61,8 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 	## our logic
 
 	def __init__(self):
+		self.influx_last_exception = None
+		self.influx_exception_count = 0
 		self.influx_timer = None
 		self.influx_db = None
 		self.influx_last_reconnect = None
@@ -92,6 +95,13 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			return platform.node()
 
 	def influx_flash_exception(self, message):
+		self.influx_exception_count += 1
+		exception = traceback.format_exc() + '\n' + message
+		if self.influx_last_exception == exception:
+			# we've already shown this, don't fill up the logs
+			self._logger.error(message)
+			return
+		self.influx_last_exception = exception
 		self._logger.exception(message)
 		# FIXME flash something to the user, probably needs JS
 
@@ -148,6 +158,10 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			if db:
 				db.close()
 			return None
+
+		# *normally* we'd reset this here, but actually we will
+		# wait for the first successful write in influx_emit
+		#self.influx_exception_count = 0
 		return db
 
 	def influx_connected(self):
@@ -156,9 +170,14 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		self.influx_reconnect()
 		return bool(self.influx_db)
 
+	def influx_backoff(self):
+		# first try 1s, then after 2s, then after 3s...
+		# but never wait longer than 10 minutes
+		return min(10 * 60, self.influx_exception_count)
+
 	def influx_reconnect(self, force=False):
 		now = monotonic.monotonic()
-		if not (force or self.influx_last_reconnect is None or self.influx_last_reconnect + 10 < now):
+		if not (force or self.influx_last_reconnect is None or self.influx_last_reconnect + self.influx_backoff() < now):
 			# don't attempt to reconnect more than once per 10s
 			return
 		self.influx_last_reconnect = now
@@ -227,6 +246,7 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 		}
 		try:
 			self.influx_db.write_points([point], retention_policy=self.influx_retention_policy)
+			self.influx_exception_count = 0
 		except Exception:
 			# we were dropped! try to reconnect
 			self.influx_flash_exception("Disconnected from InfluxDB. Attempting to reconnect.")
