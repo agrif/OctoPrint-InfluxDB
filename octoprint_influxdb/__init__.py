@@ -303,16 +303,17 @@ class InfluxDBPlugin(octoprint.plugin.EventHandlerPlugin,
 			if job.get('file', {}).get('name'):
 				# a file is loaded...
 				filename = job['file']['name']
-				filaments = job.get('filament')
-				for tool, filval in filaments.items():
-					fields = { }
-					tags = {}
-					add_to(fields, 'length', filval.get('length'))
-					add_to(fields, 'volume', filval.get('volume'))
-					add_to(tags, 'filename', filename)
-					add_to(tags, 'tool', tool)
-					if fields:
-						self.influx_emit('filament', fields, tags)
+				if job.get('filament'):
+					filaments = job.get('filament')
+					for tool, filval in filaments.items():
+						fields = { }
+						tags = {}
+						add_to(fields, 'length', filval.get('length'))
+						add_to(fields, 'volume', filval.get('volume'))
+						add_to(tags, 'filename', filename)
+						add_to(tags, 'tool', tool)
+						if fields:
+							self.influx_emit('filament', fields, tags)
 
 	##~~ EventHandlerPlugin mixin
 
